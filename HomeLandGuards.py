@@ -437,18 +437,9 @@ useragents=["AdsBot-Google ( http://www.google.com/adsbot.html)",
 			]
 
 # urls vari
-nurls = ["http://www.aliveproxy.com/high-anonymity-proxy-list/", "http://www.aliveproxy.com/anonymous-proxy-list/",
-		"http://www.aliveproxy.com/fastest-proxies/", "http://www.aliveproxy.com/us-proxy-list/", "http://www.aliveproxy.com/gb-proxy-list/",
-		"http://www.aliveproxy.com/fr-proxy-list/", "http://www.aliveproxy.com/de-proxy-list/", "http://www.aliveproxy.com/jp-proxy-list/",
-		"http://www.aliveproxy.com/ca-proxy-list/", "http://www.aliveproxy.com/ru-proxy-list/", "http://www.aliveproxy.com/proxy-list-port-80/",
-		"http://www.aliveproxy.com/proxy-list-port-81/", "http://www.aliveproxy.com/proxy-list-port-3128/", "http://www.aliveproxy.com/proxy-list-port-8000/",
-		"http://www.aliveproxy.com/proxy-list-port-8080/", "http://webanetlabs.net/publ/24", "http://www.proxz.com/proxy_list_high_anonymous_0.html",
-		"http://www.proxz.com/proxy_list_anonymous_us_0.html", "http://www.proxz.com/proxy_list_uk_0.html", "http://www.proxz.com/proxy_list_ca_0.html",
-		"http://www.proxz.com/proxy_list_cn_ssl_0.html", "http://www.proxz.com/proxy_list_jp_0.html", "http://www.proxz.com/proxy_list_fr_0.html",
-		"http://www.proxz.com/proxy_list_port_std_0.html", "http://www.proxz.com/proxy_list_port_nonstd_0.html", "http://www.proxz.com/proxy_list_transparent_0.html",
-		"http://www.proxylists.net/", "https://www.my-proxy.com/free-proxy-list.html","https://www.my-proxy.com/free-elite-proxy.html",
-		"https://www.my-proxy.com/free-anonymous-proxy.html", "https://www.my-proxy.com/free-transparent-proxy.html","https://jffjdjkbfek.000webhostapp.com/proxy.txt",
-		"https://cyber-hub.net/proxy/http.txt",]
+nurls = ["https://www.my-proxy.com/free-socks-4-proxy.html", "https://www.my-proxy.com/free-socks-5-proxy.html",
+		"https://socks-list.blogspot.com/", "https://sock5us.blogspot.com/", "https://sockslist.blogspot.com/",
+		"https://24h-sock.blogspot.com/2012/04/socks-proxy-list.html", "https://socks5-lists.blogspot.com/"]
 
 def proxyget(url): # scarica proxy da altri siti
 	try:
@@ -466,8 +457,8 @@ def proxyget(url): # scarica proxy da altri siti
 							out_file.write(x+"\n") # scrive ip uno per uno nel file proxy.txt
 							out_file.close()
 							break # appena finisce ferma il ciclo
-	except: # se c'è un errore
-		print("An error occurred, skipping to the next website.\n") # printa questo
+	except:
+		print("\nAn error occurred, skipping to the next website.")
 
 def proxyget2(url): # lo dice il nome, questa funzione scarica i proxies
 	try:
@@ -488,14 +479,17 @@ def proxyget2(url): # lo dice il nome, questa funzione scarica i proxies
 		out_file = open("proxy.txt","a")      # e li scrive nel file, aperto come a, per non sovrascrivere proxy gia presenti all'interno
 		out_file.write(proxies)
 		out_file.close()
-	except: # se succede qualche casino
-		print("An error occurred, skipping to the next website.\n") # printa questo
+	except:
+		print("\nAn error occurred, skipping to the next website.")
 
-def blogspotget(url, word, word2): # anche questa funzione scarica proxy pero' dai siti blogspot
+def blogspotget(url, word): # anche questa funzione scarica proxy pero' dai siti blogspot
 	try:
 		soup = BeautifulSoup(urllib.request.urlopen(url))
-		for tag in soup.find_all(word2, word): # bs4, dopo aver processato la source, trova la parte riguardante le proxylist
-			links = tag.a.get("href")				# prende i link delle proxylist
+		for tag in soup.find_all(word): # bs4, dopo aver processato la source, trova la parte riguardante le proxylist
+			try:
+				links = tag.a.get("href")				# prende i link delle proxylist
+			except:
+				pass
 			result = urllib.request.urlopen(links)	# finalmente apre i link trovati
 			for line in result :
 				ip = re.findall("(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3})\.(?:[\d]{1,3}):(?:[\d]{1,5})", str(line)) # cerca gli ip:porta nelle pagine
@@ -507,7 +501,7 @@ def blogspotget(url, word, word2): # anche questa funzione scarica proxy pero' d
 							out_file.close()
 							break # il ciclo si ferma non appena ha finito
 	except:
-		print("An error occurred, skipping to the next website.\n")
+		print("\nAn error occurred, skipping to the next website.")
 
 def proxylist(): # funzione per la creazione della proxylist
 	global proxies
@@ -545,7 +539,7 @@ def proxycheckerinit():
 
 def proxychecker(i):
 	proxy = 'http://' + i
-	proxy_support = urllib.request.ProxyHandler({'http' : proxy}) # compone la richiesta con il proxy
+	proxy_support = urllib.request.ProxyHandler({'socks' : proxy}) # compone la richiesta con il proxy
 	opener = urllib.request.build_opener(proxy_support)
 	urllib.request.install_opener(opener)
 	req = urllib.request.Request(("http://www.google.com"))			# compone la richiesta a google
@@ -563,40 +557,27 @@ def main(): # funzione effettiva del programma.
 		out_file = open("proxy.txt","w") # prima di tutto cancella il contenuto di proxy.txt
 		out_file.close()
 
-		print ("\nDownloading from free-proxy-list in progress...")
-		url = "http://free-proxy-list.net/"
+		print ("\nDownloading from socks-proxy.net in progress...")
+		url = "https://www.socks-proxy.net/"
 		proxyget2(url) # manda url alla funzione
-		url = "https://www.us-proxy.org/"
-		proxyget2(url)
 		print("Current IPs in proxylist: %s" % (len(open("proxy.txt").readlines()))) # printa la lunghezza attuale del file, che sarebbe il numero di proxy
 
 		print ("\nDownloading from blogspot in progress...\n")
-		url = "http://www.proxyserverlist24.top/"
-		word = "post-title entry-title"
-		word2 = "h3"
-		blogspotget(url,word, word2) # manda url, e due variabili a blogspotget
-		url = "https://proxylistdaily4you.blogspot.com/"
-		word = "post-body entry-content"
-		word2 = "div"
-		blogspotget(url,word,word2)
+		url = "https://2freesocks5list.blogspot.com/"
+		word = "strong"
+		blogspotget(url,word)
 		print("Current IPs in proxylist: %s" % (len(open("proxy.txt").readlines())))
 
 		print ("\nDownloading from various mirrors in progress...")
 		for position, url in enumerate(nurls):
-			proxyget(url)
+			proxyget (url)
 			print("Completed downloads: (%s/%s)\nCurrent IPs in proxylist: %s" % (position+1, len(nurls), len(open("proxy.txt").readlines())))
-
-		print ("\nDownloading from foxtools in progress...")
-		foxtools = ['http://api.foxtools.ru/v2/Proxy.txt?page=%d' % n for n in range(1, 6)] # per prendere ip di tutte e 6 le pagine
-		for position, url in enumerate(foxtools): # per ogni url starta la funzione apposita
-			proxyget(url)
-		print("Current IPs in proxylist: %s" % (len(open("proxy.txt").readlines())))
 
 		proxylist() # dopo esegue questa funzione che setta meglio la lista
 
 		print("\n")
 		while True:
-			choice = input("\nDo you want to check the proxies? [Y/n] > ") # scelta di quello che vuole l'utente
+			choice = input("\nDo you want to check the socks? [Y/n] > ") # scelta di quello che vuole l'utente
 			if choice == 'Y' or choice == 'y' or choice == 'yes' or choice == 'Yes' or choice == '': # se si vuole checkare starta funzione del check
 				proxycheckerinit()
 				break
@@ -604,8 +585,7 @@ def main(): # funzione effettiva del programma.
 				exit(0)
 			else: # se scrivi male input
 				print ("Please write correctly.")
-
-	except: # se succede qualcosa di inaspettato
+	except:
 		print ("\n\nAn error occurred.")
 
 
@@ -614,7 +594,7 @@ def main(): # funzione effettiva del programma.
 if __name__ == '__main__':
 
 	while True:
-		choice = input("\nDo you want to download proxies? [Y/n] > ")
+		choice = input("\nDo you want to download socks? [Y/n] > ")
 		if choice == 'Y' or choice == 'y' or choice == 'yes' or choice == 'Yes' or choice == '': # se si vuole scaricare i proxy va in main()
 			main()
 			break
